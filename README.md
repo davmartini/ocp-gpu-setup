@@ -150,3 +150,59 @@ The setup script supports 14 different GPU configurations including:
                     │ • Monitoring agents │
                     └─────────────────────┘
 ```
+
+## Step 5: Add a taint to node with GPU
+
+A taint allows the possibility to dedicate some specific nodes (with GPU for example) to specific workloads (AI workload with GUP needs for example).
+
+**We have to taint specific nodes with specifics keys to do that: **
+```
+  taints:
+    - key: nvidia.com/gpu
+      value: NVIDIA-L40S-PRIVATE
+      effect: NoSchedule
+```
+
+## Step 6: Create a new accelerator profile
+
+**Via YAML:**
+```
+apiVersion: infrastructure.opendatahub.io/v1
+kind: HardwareProfile
+metadata:
+  name: nvidia-l40s-private
+  namespace: redhat-ods-applications
+spec:
+  identifiers:
+    - defaultCount: 2
+      displayName: CPU
+      identifier: cpu
+      maxCount: 4
+      minCount: 1
+      resourceType: CPU
+    - defaultCount: 4Gi
+      displayName: Memory
+      identifier: memory
+      maxCount: 8Gi
+      minCount: 2Gi
+      resourceType: Memory
+    - defaultCount: 1
+      displayName: GPU
+      identifier: nvidia.com/gpu
+      maxCount: 2
+      minCount: 1
+      resourceType: Accelerator
+  scheduling:
+    node:
+      nodeSelector: {}
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Equal
+          value: NVIDIA-L40S-PRIVATE
+    type: Node
+```
+
+**Via RHOAI Web UI:**
+
+![image](images/hardware-profile.png)
