@@ -4,11 +4,24 @@ Complete setup guide for enabling NVIDIA GPU support in OpenShift Container Plat
 
 ## Overview
 
-This setup deploys a complete GPU-enabled OpenShift environment with:
+This setup deploys a complete NVIDIA GPU-enabled OpenShift environment with OpenShift AI 3.0: 
 - **GPU-enabled worker nodes** with NVIDIA L40S GPUs
 - **Node Feature Discovery (NFD)** for hardware detection
 - **NVIDIA GPU Operator** for automated GPU resource management
 - **Custom configurations** for production GPU workloads
+
+All these operator should be installed :
+
+* Node Feature Discovery Operator (Red Hat)
+* NVIDIA GPU Operator (NVIDIA)
+* NVIDIA Network Operator (optional) (NVIDIA)
+* Authorino Operator (Red Hat)
+* OpenShift AI Operator (Red Hat)
+* OpenShift Service Mesh 3 (Red Hat)
+* OpenShift Serverless (Red Hat)
+* Connectivity Link (Red Hat) : Needed by llm-d
+* Leader Worker Set Operator : Needed by llm-d
+
 
 ## Clone the Repository
 
@@ -207,8 +220,100 @@ spec:
 
 ![image](images/hardware-profile.png)
 
-## Deploy a model via RHOAI via Kserv
+## Step 7: Deploy a model with RHOAI and Kserv
 
 ![image](images/model-deployement.png)
 
 ![image](images/model-deployement2.png)
+
+## Step 8: Deploy a distributed model with RHOAI and llm-d
+
+**Doc:** https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.0/html/deploying_models/deploying_models#deploying-models-using-distributed-inference_rhoai-user 
+
+**Requirements:**
+
+1. Installing OpenShift AI.
+2. Enabling the model serving platform.
+3. Configuring authentication with Red Hat Connectivity Link.
+4. Enabling Distributed Inference with llm-d on a Kubernetes cluster.
+5. Creating an LLMInferenceService Custom Resource (CR).
+6. Deploying a model.
+
+### Steps
+
+1. Create a new GatewayClass:
+```
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+ name: openshift-ai-inference
+spec:
+ controllerName: openshift.io/gateway-controller/v1
+```
+2. Create a new Gateway:
+```
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+ name: openshift-ai-inference
+ namespace: openshift-ingress
+spec:
+ gatewayClassName: openshift-ai-inference
+ listeners:
+   - name: https
+     port: 443
+     protocol: HTTPS
+     hostname: inference-gateway.apps.test-rc3.rhoai.rh-aiservices-bu.com
+     tls:
+       mode: Terminate
+       certificateRefs:
+         - kind: Secret
+           name: default-gateway-tls
+     allowedRoutes:
+       namespaces:
+         from: Selector
+         selector:
+           matchExpressions:
+             - key: kubernetes.io/metadata.name
+               operator: In
+               values:
+                 - openshift-ingress
+                 - redhat-ods-applications
+                 - dmartini
+```
+
+3. Create a LLMInferenceService:
+
+```
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: granite-llm-d-inference-service
+  namespace: dmartini
+spec:
+  replicas: 2
+  model:
+    uri: oci://registry.redhat.io/rhelai1/modelcar-granite-3-1-8b-lab-v1:1.4.0
+    name: RedHatAI/granite-3-1-8b
+  router:
+    route: {}
+    gateway: {}
+    scheduler: {}
+  template:
+    tolerations:
+      - key: nvidia.com/gpu
+        operator: Equal
+        value: NVIDIA-L40S-PRIVATE
+        effect: NoSchedule
+    containers:
+    - name: main
+      resources:
+        limits:
+          cpu: '4'
+          memory: 32Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: '2'
+          memory: 16Gi
+          nvidia.com/gpu: "1"
+```
