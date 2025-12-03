@@ -155,7 +155,7 @@ The setup script supports 14 different GPU configurations including:
 
 A taint allows the possibility to dedicate some specific nodes (with GPU for example) to specific workloads (AI workload with GUP needs for example).
 
-**We have to taint specific nodes with specifics keys to do that: **
+**We have to taint specific nodes with specifics keys to do that:**
 ```
   taints:
     - key: nvidia.com/gpu
