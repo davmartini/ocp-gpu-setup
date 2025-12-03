@@ -206,3 +206,9 @@ spec:
 **Via RHOAI Web UI:**
 
 ![image](images/hardware-profile.png)
+
+## Deploy a model via RHOAI via Kserv
+
+![image](images/model-deployement.png)
+
+![image](images/model-deployement2.png)
